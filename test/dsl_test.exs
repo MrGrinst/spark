@@ -46,6 +46,39 @@ defmodule Spark.DslTest do
     assert(Spark.Test.Contact.Info.module(CrashBandicoot) == The.Contacter)
   end
 
+  describe inspect(&Spark.Dsl.is?/2) do
+    test "checks the DSL a module uses" do
+      assert Spark.Dsl.is?(TedDansen, Spark.Test.Contact)
+      refute Spark.Dsl.is?(TedDansen, Spark.Test.Recursive)
+    end
+
+    test "is false for anything that isn't a DSL module" do
+      refute Spark.Dsl.is?(String, Spark.Test.Contact)
+      refute Spark.Dsl.is?(:string, Spark.Test.Contact)
+      refute Spark.Dsl.is?(This.Module.DoesNotExist, Spark.Test.Contact)
+      refute Spark.Dsl.is?("TedDansen", Spark.Test.Contact)
+    end
+
+    @tag :tmp_dir
+    test "loads a DSL module that isn't loaded yet", %{tmp_dir: tmp_dir} do
+      [{module, beam}] =
+        Code.compile_string("""
+        defmodule Spark.DslTest.NotYetLoaded do
+          use Spark.Test.Contact
+        end
+        """)
+
+      File.write!(Path.join(tmp_dir, "#{module}.beam"), beam)
+      :code.purge(module)
+      :code.delete(module)
+      Code.prepend_path(tmp_dir)
+      on_exit(fn -> Code.delete_path(tmp_dir) end)
+
+      refute :erlang.module_loaded(module)
+      assert Spark.Dsl.is?(module, Spark.Test.Contact)
+    end
+  end
+
   describe "module conflicts" do
     test "options don't conflict with outermost sections" do
       defmodule MoffGideon do

@@ -799,12 +799,21 @@ defmodule Spark.Dsl do
   end
 
   def is?(module, type) when is_atom(module) do
+    cond do
+      function_exported?(module, :spark_is, 0) -> module.spark_is() == type
+      :erlang.module_loaded(module) -> false
+      # Calling an unloaded module loads it, or waits for it while it compiles
+      true -> load_and_check_is?(module, type)
+    end
+  end
+
+  def is?(_module, _type), do: false
+
+  defp load_and_check_is?(module, type) do
     module.spark_is() == type
   rescue
     _ -> false
   end
-
-  def is?(_module, _type), do: false
 
   def handle_fragments(dsl_config, fragments) do
     fragments
